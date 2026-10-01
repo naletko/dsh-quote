@@ -310,13 +310,20 @@ process.env.DSH_HOME = sandboxHome;
 const routes = [];
 apply({
 	effect(callback) { callback(); },
+	// Cordis' `inject(deps, callback)` runs the callback once every named service
+	// exists; this stub has no plugin manager, so the updater stays unavailable.
+	inject() { return () => {}; },
 	webServer: { register(route) { routes.push(route); return () => {}; } }
 }, {});
 
-equal("one route is registered", routes.length, 1);
-equal("the route is an exact match", routes[0].kind, "exact");
-equal("the route lives under the plugin's own prefix", routes[0].path, "/api/dsh-quote/config");
-equal("the handler is async", routes[0].handler.constructor.name, "AsyncFunction");
+equal("the plugin registers its configuration route", routes.length >= 1, true);
+const configRoute = routes.find((route) => route.path === "/api/dsh-quote/config");
+equal("the configuration route is an exact match", configRoute?.kind, "exact");
+equal("the route lives under the plugin's own prefix", configRoute?.path, "/api/dsh-quote/config");
+equal("the handler is async", configRoute?.handler.constructor.name, "AsyncFunction");
+const updateRoute = routes.find((route) => route.path === "/api/dsh-quote/update");
+equal("the update check route is registered too", updateRoute?.kind, "exact");
+equal("the update apply route is registered too", routes.some((route) => route.path === "/api/dsh-quote/update/apply"), true);
 
 /** Answer one request through the registered handler. */
 async function call(method, body, remoteAddress = "127.0.0.1") {

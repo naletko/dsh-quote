@@ -110,6 +110,18 @@ Settings are read and written through the plugin's own route, `GET`/`POST /api/d
 
 ---
 
+## 🔄 Updating
+
+The plugin updates itself: **Settings → Plugins → Quote** carries an **Updates** section that asks GitHub for the
+branch revision, shows the version installed next to the version on `main`, lists what changed, and hands the pinned
+commit to the harness plugin manager in one click. Reload the page afterwards; if the version has not changed, restart
+the application — the host half only loads at boot.
+
+A deployment without a plugin manager prints the manual spec instead, for **Plugins → Add plugin**:
+`github:naletko/dsh-quote`.
+
+---
+
 ## 🧩 Requirements and compatibility
 
 - **DeepSeek Harness core `0.2.0-rc.2`** (the web client of the Desktop app or a browser session).

@@ -1,6 +1,6 @@
 {
   "name": "dsh-quote",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Quote the text you selected in the conversation into the composer, as a markdown block quote, without losing the draft you already typed.",
   "icon": "./icon.svg",
   "author": "Alex Naletko",
@@ -45,6 +45,7 @@
     "cordis.patch.yml",
     "compatibility.json",
     "AGENTS.md",
+    "lib/*.js",
     "locale/*.json",
     "README.md",
     "README.ru.md",
@@ -74,7 +75,7 @@
     }
   },
   "scripts": {
-    "test": "node test/metadata-check.mjs && node test/quote-logic-check.mjs",
-    "check": "node --check index.js && node --check client.js"
+    "test": "node test/metadata-check.mjs && node test/quote-logic-check.mjs && node test/update-check.mjs && node test/update-routes.mjs",
+    "check": "node --check index.js && node --check client.js && node --check lib/update.js"
   }
 }

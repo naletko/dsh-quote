@@ -1,8 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Quote">
-  <!-- Two block-quote marks plus the quote bar they belong to. -->
-  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M9 17.5c-2.3 0-3.6-1.7-3.6-3.8 0-2.6 1.8-5.2 4.6-6.9" />
-    <path d="M17.4 17.5c-2.3 0-3.6-1.7-3.6-3.8 0-2.6 1.8-5.2 4.6-6.9" />
-    <path d="M4.5 20.5h15" opacity="0.55" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Quote">
+  <!--
+    Two quote marks on the same blue tile the Image Studio card uses, so the two
+    plugins read as a set. The marks are solid shapes rather than strokes: a
+    hairline glyph disappears in the 28px card.
+  -->
+  <defs>
+    <linearGradient id="q-tile" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6b9bf7" />
+      <stop offset="1" stop-color="#4a5fd6" />
+    </linearGradient>
+  </defs>
+
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#q-tile)" />
+
+  <path d="M18 21 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-7 a9 9 0 0 1 -9 -9 z" fill="#ffffff" />
+  <path d="M36 21 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-7 a9 9 0 0 1 -9 -9 z" fill="#ffffff" fill-opacity="0.7" />
 </svg>

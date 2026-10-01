@@ -70,7 +70,22 @@ window.__ModuleLoader__.load({
         saveFailed: 'Could not save: {error}',
         loadFailed: 'Using the defaults — the saved settings could not be read.',
         modifierRequired: 'Include Ctrl, Cmd, Alt or Shift.',
-        preview: 'What lands in the composer'
+        preview: 'What lands in the composer',
+        updates: 'Updates',
+        updatesCurrent: 'Installed',
+        updatesLatest: 'On GitHub',
+        updatesCheck: 'Check',
+        updatesApply: 'Update',
+        updatesAvailable: 'An update is available',
+        updatesRunning: 'Installing…',
+        updatesDone: 'The update has been downloaded',
+        updatesDoneHint: 'Reload the page; if the version above has not changed, restart the application.',
+        updatesFailed: 'The update failed',
+        updatesUpToDate: 'The latest version is installed',
+        updatesManual: 'This deployment has no plugin manager — update from Plugins → Add plugin:',
+        updatesNotes: "What's new",
+        updatesReload: 'Reload the page',
+        updatesUnavailable: 'The update check could not reach GitHub: {error}'
       },
       ru: {
         quote: 'Цитировать',
@@ -98,7 +113,22 @@ window.__ModuleLoader__.load({
         saveFailed: 'Не удалось сохранить: {error}',
         loadFailed: 'Использованы настройки по умолчанию — сохранённые прочитать не удалось.',
         modifierRequired: 'Добавьте Ctrl, Cmd, Alt или Shift.',
-        preview: 'Что попадёт в поле ввода'
+        preview: 'Что попадёт в поле ввода',
+        updates: 'Обновления',
+        updatesCurrent: 'Установлено',
+        updatesLatest: 'На GitHub',
+        updatesCheck: 'Проверить',
+        updatesApply: 'Обновить',
+        updatesAvailable: 'Доступно обновление',
+        updatesRunning: 'Устанавливаю…',
+        updatesDone: 'Обновление скачано',
+        updatesDoneHint: 'Обновите страницу; если версия выше не изменилась — перезапустите приложение.',
+        updatesFailed: 'Не удалось обновить',
+        updatesUpToDate: 'Установлена последняя версия',
+        updatesManual: 'В этой сборке нет менеджера плагинов — обновите через «Плагины → Добавить плагин»:',
+        updatesNotes: 'Что нового',
+        updatesReload: 'Обновить страницу',
+        updatesUnavailable: 'Не удалось проверить обновления: {error}'
       }
     };
 
@@ -360,8 +390,7 @@ window.__ModuleLoader__.load({
     }
 
     /** Read the settings from the host, falling back to the cached copy. */
-    async function fetchHostConfig() {
-      const response = await fetch(CONFIG_ENDPOINT, {
+    async function fetchHostConfig() {      const response = await fetch(CONFIG_ENDPOINT, {
         method: 'GET',
         headers: { Accept: 'application/json' },
         cache: 'no-store'
@@ -388,6 +417,146 @@ window.__ModuleLoader__.load({
       const config = normalizeConfig(data.config);
       cacheConfig(config);
       return config;
+    }
+
+    // ── Updates ──────────────────────────────────────────────────────────────
+    // The plugin is installed from Git, so it asks its own repository whether the
+    // branch has moved and hands the revision to the harness plugin manager. The
+    // host owns both steps; this half only renders them.
+
+    /** The update route the host registers beside the configuration route. */
+    const UPDATE_ENDPOINT = '/api/dsh-quote/update';
+
+    /** Ask the host what the branch holds and what is running here. */
+    async function fetchUpdate(force) {
+      const response = await fetch(`${UPDATE_ENDPOINT}${force ? '?force=1' : ''}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || data === null || data.ok !== true) {
+        throw new Error(data?.error ?? `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    /** Ask the host to install the revision it just reported. */
+    async function startUpdate() {
+      const response = await fetch(`${UPDATE_ENDPOINT}/apply`, {
+        method: 'POST',
+        headers: { Accept: 'application/json' }
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || data === null || data.ok !== true) {
+        throw new Error(data?.error ?? `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    /**
+     * The updates block under the settings form: the version installed, the
+     * version on the branch, what changed, and one button.
+     */
+    function QuoteUpdates() {
+      const [info, setInfo] = useState(null);
+      const [busy, setBusy] = useState(false);
+      const [failed, setFailed] = useState('');
+
+      const load = useCallback(async (force) => {
+        try {
+          setInfo(await fetchUpdate(force));
+          setFailed('');
+        } catch (error) {
+          setFailed(error?.message ?? String(error));
+        }
+      }, []);
+
+      useEffect(() => {
+        void load(false);
+      }, [load]);
+
+      useEffect(() => {
+        if (info?.progress?.status !== 'running') return undefined;
+        const timer = setInterval(() => {
+          void load(true);
+        }, 2500);
+        return () => clearInterval(timer);
+      }, [info, load]);
+
+      const running = info?.progress?.status === 'running';
+      const start = async () => {
+        setBusy(true);
+        try {
+          const body = await startUpdate();
+          setInfo((current) => (current === null
+            ? current
+            : { ...current, progress: { status: 'running', spec: body.spec, at: Date.now() } }));
+        } catch (error) {
+          setFailed(error?.message ?? String(error));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      return h('section', { className: 'dsh-quote-field' },
+        h('h3', { className: 'dsh-quote-row-label' }, message('updates')),
+
+        info === null
+          ? h('p', { className: 'dsh-quote-field-hint' }, failed === '' ? '…' : message('updatesUnavailable', { error: failed }))
+          : h('div', null,
+            h('p', { className: 'dsh-quote-field-hint' },
+              `${message('updatesCurrent')}: ${info.current} · ${message('updatesLatest')}: ${info.latest}${info.sha ? ` (${info.sha})` : ''}`),
+
+            Array.isArray(info.notes) && info.notes.length > 0
+              ? h('ul', { className: 'dsh-quote-field-hint' },
+                info.notes.map((note) => h('li', { key: note.sha }, `${note.sha} · ${note.message}`)))
+              : null,
+
+            h('div', { className: 'dsh-quote-actions' },
+              running
+                ? h('span', { className: 'dsh-quote-status' }, message('updatesRunning'))
+                : null,
+              h('button', {
+                type: 'button',
+                className: 'dsh-quote-btn dsh-quote-action',
+                disabled: running,
+                onClick: () => void load(true)
+              }, message('updatesCheck')),
+              info.updateAvailable || running
+                ? h('button', {
+                  type: 'button',
+                  className: 'dsh-quote-btn dsh-quote-action dsh-quote-action-primary',
+                  disabled: running || busy || info.manager === false,
+                  onClick: () => void start()
+                }, `${message('updatesApply')} → ${info.latest}`)
+                : null,
+              !info.updateAvailable && !running
+                ? h('span', { className: 'dsh-quote-status' }, message('updatesUpToDate'))
+                : null),
+
+            info.manager === false
+              ? h('p', { className: 'dsh-quote-field-hint' }, `${message('updatesManual')} ${info.spec}`)
+              : null,
+
+            info.progress?.status === 'done'
+              ? h('div', { className: 'dsh-quote-actions' },
+                h('span', { className: 'dsh-quote-status' }, `${message('updatesDone')}. ${message('updatesDoneHint')}`),
+                h('button', {
+                  type: 'button',
+                  className: 'dsh-quote-btn dsh-quote-action',
+                  onClick: () => { try { window.location.reload(); } catch (error) { /* reload is best effort */ } }
+                }, message('updatesReload')))
+              : null,
+
+            info.progress?.status === 'error'
+              ? h('p', { className: 'dsh-quote-status dsh-quote-status-error' },
+                `${message('updatesFailed')}: ${info.progress.error ?? ''}`)
+              : null),
+
+        failed !== '' && info !== null
+          ? h('p', { className: 'dsh-quote-status dsh-quote-status-error' }, message('updatesUnavailable', { error: failed }))
+          : null);
     }
 
     /**
@@ -1282,7 +1451,11 @@ window.__ModuleLoader__.load({
           status !== '' && h('span', {
             className: failed ? 'dsh-quote-status dsh-quote-status-error' : 'dsh-quote-status'
           }, status)
-        )
+        ),
+
+        // The plugin updates itself, so the card also carries the version and the
+        // single button that installs a newer revision.
+        h(QuoteUpdates)
       );
     }
 

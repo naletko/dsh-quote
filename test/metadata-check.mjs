@@ -68,7 +68,16 @@ if (typeof icon === "string") {
 	check("the icon exists", size >= 0, iconPath);
 	check("the icon stays inside the package", !relative(packageRoot, iconPath).startsWith(".."), relative(packageRoot, iconPath));
 	check("the icon is at most 256 KiB", size >= 0 && size <= 256 * 1024, `${size} bytes`);
-	check("the icon paints in the current colour", /currentColor/u.test(readFileSync(iconPath, "utf8")));
+
+	// The card icon is a branded tile rather than a currentColor glyph, so what
+	// matters is that it draws itself: a viewBox, and every paint server or clip
+	// path it references defined in the same file. An unresolved url(#…) renders
+	// as no fill at all, which is an icon that silently disappears.
+	const iconSource = readFileSync(iconPath, "utf8");
+	check("the icon declares a viewBox", /viewBox="0 0 64 64"/u.test(iconSource));
+	const ids = new Set([...iconSource.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]));
+	const refs = [...iconSource.matchAll(/url\(#([^)]+)\)/gu)].map((match) => match[1]);
+	check("the icon references its own paint servers", refs.length > 0 && refs.every((ref) => ids.has(ref)), refs.join(", "));
 }
 
 console.log("locale files (the shape the host reads)");
