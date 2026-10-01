@@ -1,0 +1,79 @@
+{
+  "name": "dsh-quote",
+  "version": "1.0.0",
+  "description": "Quote the text you selected in the conversation into the composer, as a markdown block quote, without losing the draft you already typed.",
+  "icon": "./icon.svg",
+  "author": "Alex Naletko",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/naletko/dsh-quote.git"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "quote",
+    "blockquote",
+    "citation",
+    "composer",
+    "markdown"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./icon.svg": "./icon.svg",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "icon.svg",
+    "cordis.patch.yml",
+    "compatibility.json",
+    "locale/*.json",
+    "README.md",
+    "README.ru.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.1 || 4.0.2 || 4.0.3 || 4.0.4",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.0-rc.2 || 0.2.0-rc.1 || 0.1.7-rc.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-conversation": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/metadata-check.mjs && node test/quote-logic-check.mjs",
+    "check": "node --check index.js && node --check client.js"
+  }
+}

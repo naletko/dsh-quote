@@ -1,0 +1,31 @@
+name: tests
+
+# No build step: a green run is syntax plus the two suites, each run directly
+# because `node --test` spawns a child per file.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['22.x', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Syntax
+        run: |
+          node --check index.js
+          node --check client.js
+
+      - name: Tests
+        run: |
+          node test/metadata-check.mjs
+          node test/quote-logic-check.mjs

@@ -1,0 +1,5 @@
+# One line ending for every checkout, so a Windows and a macOS clone of this
+# plugin produce identical bytes; it ships plain scripts with no build step.
+* text=auto eol=lf
+*.png binary
+*.svg text eol=lf
