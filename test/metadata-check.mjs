@@ -98,9 +98,11 @@ if (typeof englishPath === "string") {
 
 console.log("what the card would show");
 const english = languages.find(([language]) => language === "en")?.[1];
-check("the English title names the plugin", english?.title === "Quote by Alex Naletko", english?.title);
+check("the English title is the short product name", english?.title === "Quote", english?.title);
+check("the description credits the author", /Alex Naletko/u.test(english?.description ?? ""), english?.description);
 check("the description is longer than the title", (english?.description?.length ?? 0) > (english?.title?.length ?? 0));
 check("a Russian translation ships too", languages.some(([language]) => language === "ru"));
+check("every locale carries the same title", languages.every(([, meta]) => meta?.title === "Quote"), languages.map(([language, meta]) => `${language}:${meta?.title}`).join(" | "));
 check("the manifest description is a usable fallback", typeof manifest.description === "string" && manifest.description.trim() !== "");
 check("the plugin publishes under its own repository", String(manifest.repository?.url ?? "").includes("naletko/dsh-quote"), manifest.repository?.url);
 check("the author is credited", manifest.author === "Alex Naletko", manifest.author);
