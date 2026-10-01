@@ -44,6 +44,7 @@
     "icon.svg",
     "cordis.patch.yml",
     "compatibility.json",
+    "AGENTS.md",
     "locale/*.json",
     "README.md",
     "README.ru.md",
