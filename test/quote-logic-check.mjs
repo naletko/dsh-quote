@@ -419,6 +419,14 @@ check("a selection at the very bottom keeps the button on screen", atBottom.top 
 check("the bottom-edge button never leaves the top either", atBottom.top >= 8, atBottom.top);
 const nearRight = win.computeQuotePosition({ top: 100, bottom: 120, left: 1000, width: 200 }, size);
 check("near the right edge it is clamped", nearRight.left <= 1024 - 100 - 8, nearRight.left);
+
+// ── The right-click menu ────────────────────────────────────────────────────
+
+console.log("the context menu only replaces the native one when it can help");
+equal("an enabled plugin with a selection takes over", win.shouldTakeOverContextMenu(true, true), true);
+equal("nothing selected leaves the native menu alone", win.shouldTakeOverContextMenu(true, false), false);
+equal("a disabled plugin never touches the native menu", win.shouldTakeOverContextMenu(false, true), false);
+equal("an undefined switch is not enabled", win.shouldTakeOverContextMenu(undefined, true), false);
 equal("a selection at the right edge is clamped to the margin", win.computeQuotePosition({ top: 10, bottom: 30, left: 5000, width: 10 }, size).left, 1024 - 100 - 8);
 equal("a selection at the left edge is clamped", win.computeQuotePosition({ top: 10, bottom: 30, left: -40, width: 10 }, size).left, 8);
 check("a missing rect does not throw", win.computeQuotePosition(null, size).top >= 8);

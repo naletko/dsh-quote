@@ -45,6 +45,7 @@ window.__ModuleLoader__.load({
     /** Translation dictionaries. `ru` is chosen for a `ru*` document language. */
     const DICTIONARIES = {
       en: {
+        copy: 'Copy',
         quote: 'Quote',
         quoteHint: 'Quote the selection ({hotkey})',
         summary: 'Enabled, attribution, length limit and hotkey',
@@ -88,6 +89,7 @@ window.__ModuleLoader__.load({
         updatesUnavailable: 'The update check could not reach GitHub: {error}'
       },
       ru: {
+        copy: 'Копировать',
         quote: 'Цитировать',
         quoteHint: 'Цитировать выделенное ({hotkey})',
         summary: 'Включение, атрибуция, лимит длины и горячая клавиша',
@@ -165,6 +167,20 @@ window.__ModuleLoader__.load({
       return template.replace(/\{(\w+)\}/gu, (match, name) => (
         values[name] === undefined ? match : String(values[name])
       ));
+    }
+
+    /**
+     * Whether the plugin should replace the browser's context menu.
+     *
+     * Only while quoting is enabled *and* something is selected: the rest of the
+     * page keeps its native menu, and an empty selection has nothing to quote.
+     *
+     * @param enabled - the plugin's own switch.
+     * @param hasSelection - whether a non-empty transcript selection exists.
+     * @returns true when the page should show its own Copy/Quote menu.
+     */
+    function shouldTakeOverContextMenu(enabled, hasSelection) {
+      return enabled === true && hasSelection === true;
     }
 
     /** Whether the pointer/keyboard conventions of this machine are Apple's. */
@@ -728,6 +744,53 @@ window.__ModuleLoader__.load({
         z-index: 2147483000;
         pointer-events: none;
       }
+      .dsh-quote-layer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 0;
+        z-index: 2147483000;
+        pointer-events: none;
+      }
+      .dsh-quote-menu {
+        position: fixed;
+        z-index: 2147483000;
+        display: flex;
+        flex-direction: column;
+        min-width: 168px;
+        padding: 5px;
+        gap: 2px;
+        pointer-events: auto;
+        border-radius: 11px;
+        border: 1px solid var(--dsw-alias-border-l3, rgba(255, 255, 255, 0.14));
+        background: var(--dsw-specific-menu, var(--dsw-alias-bg-layer-2, #22252c));
+        box-shadow: var(--dsw-elevation-prominent, 0 12px 32px rgba(0, 0, 0, 0.34));
+        color: var(--dsw-alias-label-primary, #e9ecf1);
+        font: inherit;
+      }
+      .dsh-quote-menu-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 7px 11px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .dsh-quote-menu-item:hover,
+      .dsh-quote-menu-item:focus-visible {
+        background: var(--dsh-alias-interactive-bg-hover, rgba(255, 255, 255, 0.09));
+        outline: none;
+      }
+      .dsh-quote-menu-item-accent {
+        font-weight: 600;
+        color: var(--dsw-alias-brand-primary, #5b8bf0);
+      }
       .dsh-quote-btn {
         position: fixed;
         z-index: 2147483000;
@@ -989,8 +1052,12 @@ window.__ModuleLoader__.load({
     function QuoteComposerBridge({ onActiveChange, inputActions, sessionId }) {
       const [anchor, setAnchor] = useState(null);
       const [position, setPosition] = useState(null);
+      // The right-click menu: the browser's own menu offers "Copy", and this one
+      // offers Copy and Quote side by side, so a quote is one gesture away.
+      const [menu, setMenu] = useState(null);
       const [enabled, setEnabled] = useState(() => configStore.config.enabled === true);
       const buttonRef = useRef(null);
+      const menuRef = useRef(null);
       const clearRef = useRef(null);
 
       // The toolbar must keep its ordinary controls: this occupant is a
@@ -1121,14 +1188,36 @@ window.__ModuleLoader__.load({
           const insideButton = buttonRef.current !== null
             && typeof target?.nodeType === 'number'
             && buttonRef.current.contains(target) === true;
-          if (insideButton) return;
+          const insideMenu = menuRef.current !== null
+            && typeof target?.nodeType === 'number'
+            && menuRef.current.contains(target) === true;
+          if (insideButton || insideMenu) return;
           dismiss();
+          setMenu(null);
+        };
+
+        /**
+         * Take over the browser's context menu when something is selected.
+         *
+         * With an empty selection the native menu is left alone, so the rest of
+         * the page keeps its usual right-click; with a selection the page offers
+         * Copy and Quote, because the native Copy is the only thing it can undo.
+         */
+        const onContextMenu = (event) => {
+          if (shouldTakeOverContextMenu(configStore.config.enabled, readQuotedSelection() !== null) !== true) {
+            setMenu(null);
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          setMenu({ x: event.clientX, y: event.clientY });
         };
 
         const onKeyDown = (event) => {
           const current = configStore.config;
           if (event.key === 'Escape') {
             dismiss();
+            setMenu(null);
             return;
           }
           if (current.enabled !== true) return;
@@ -1147,6 +1236,7 @@ window.__ModuleLoader__.load({
             && buttonRef.current.contains(target) === true;
           if (insideButton) return;
           dismiss();
+          setMenu(null);
         };
 
         document.addEventListener('selectionchange', scheduleEvaluate);
@@ -1155,6 +1245,7 @@ window.__ModuleLoader__.load({
         document.addEventListener('pointerdown', onPointerDown, true);
         document.addEventListener('keydown', onKeyDown, true);
         document.addEventListener('scroll', onScroll, true);
+        document.addEventListener('contextmenu', onContextMenu, true);
         window.addEventListener('resize', dismiss);
         window.addEventListener('blur', dismiss);
         document.addEventListener('visibilitychange', dismiss);
@@ -1166,6 +1257,7 @@ window.__ModuleLoader__.load({
           document.removeEventListener('pointerdown', onPointerDown, true);
           document.removeEventListener('keydown', onKeyDown, true);
           document.removeEventListener('scroll', onScroll, true);
+          document.removeEventListener('contextmenu', onContextMenu, true);
           window.removeEventListener('resize', dismiss);
           window.removeEventListener('blur', dismiss);
           document.removeEventListener('visibilitychange', dismiss);
@@ -1195,6 +1287,18 @@ window.__ModuleLoader__.load({
 
       const portalContainer = usePortalContainer();
 
+      /** Put the selection on the clipboard, the way the native menu would. */
+      const copySelection = useCallback(() => {
+        const found = readQuotedSelection();
+        if (found === null) return false;
+        try {
+          navigator?.clipboard?.writeText?.(found.text);
+        } catch (error) {
+          console.warn('[dsh-quote] the clipboard refused the selection', error);
+        }
+        return true;
+      }, []);
+
       const button = anchor === null || enabled !== true || position === null
         ? null
         : h('button', {
@@ -1219,11 +1323,55 @@ window.__ModuleLoader__.load({
           h('span', null, message('quote'))
         );
 
-      if (button === null) return null;
+      // The right-click menu replaces the native one only while text is selected,
+      // and keeps its two actions: copy, exactly as before, and quote.
+      const viewportWidth = typeof window === 'undefined' ? 1200 : (window.innerWidth || 1200);
+      const viewportHeight = typeof window === 'undefined' ? 800 : (window.innerHeight || 800);
+      const menuNode = menu === null || enabled !== true
+        ? null
+        : h('div', {
+          ref: menuRef,
+          className: 'dsh-quote-menu',
+          'data-dsh-quote-menu': '',
+          role: 'menu',
+          style: {
+            top: `${Math.max(8, Math.min(menu.y, viewportHeight - 88))}px`,
+            left: `${Math.max(8, Math.min(menu.x, viewportWidth - 190))}px`
+          },
+          onMouseDown: (event) => event.preventDefault(),
+          onPointerDown: (event) => event.stopPropagation(),
+          onContextMenu: (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        },
+          h('button', {
+            type: 'button',
+            role: 'menuitem',
+            className: 'dsh-quote-menu-item',
+            onClick: () => {
+              copySelection();
+              setMenu(null);
+            }
+          }, message('copy')),
+          h('button', {
+            type: 'button',
+            role: 'menuitem',
+            className: 'dsh-quote-menu-item dsh-quote-menu-item-accent',
+            onClick: () => {
+              quoteCurrentSelection();
+              setMenu(null);
+              if (clearRef.current !== null) clearRef.current();
+            }
+          }, message('quote'))
+        );
+
+      if (button === null && menuNode === null) return null;
+      const layer = h('div', { className: 'dsh-quote-layer' }, button, menuNode);
       if (portalContainer !== null && reactDom !== null && typeof reactDom.createPortal === 'function') {
-        return reactDom.createPortal(button, portalContainer);
+        return reactDom.createPortal(layer, portalContainer);
       }
-      return button;
+      return layer;
     }
 
     /**
@@ -1515,6 +1663,7 @@ window.__ModuleLoader__.load({
         computeQuotePosition,
         isEditableNode,
         isInsideEditable,
+        shouldTakeOverContextMenu,
         QuoteComposerBridge,
         QuoteSettings,
         QuoteSettingsSlot
