@@ -1359,7 +1359,7 @@ window.__ModuleLoader__.load({
           h('button', {
             type: 'button',
             className: 'dsh-quote-btn dsh-quote-btn-primary',
-            title: message('quoteHint', { hotkey: formatHotkeyLabel(config.hotkey) }),
+            title: message('quoteHint', { hotkey: formatHotkeyLabel(configStore.config.hotkey) }),
             'aria-label': message('addToChat'),
             onClick: (event) => {
               event.preventDefault();
@@ -1717,6 +1717,7 @@ window.__ModuleLoader__.load({
       __test: {
         DEFAULT_CONFIG,
         FALLBACK_HOTKEY,
+        configStore,
         message,
         language: LANGUAGE,
         dictionaries: DICTIONARIES,

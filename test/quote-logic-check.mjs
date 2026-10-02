@@ -38,20 +38,36 @@ function equal(label, actual, expected) {
 }
 
 /**
- * Load client.js the way the browser loader does and return its test hook.
- * `platform` drives the Apple check, so the macOS spelling of the default
- * hotkey can be tested on any machine.
+ * A React stand-in: every hook is inert, so calling a component returns the
+ * element tree it would render without mounting anything. `seeded` answers the
+ * component's `useState` calls in order, which is how a component whose state
+ * normally comes from a DOM event (a text selection, a measured position) can
+ * still be rendered by a test.
  */
-function loadClient(platform = "Win32") {
-	const react = {
+function reactStub(seeded = []) {
+	let stateIndex = 0;
+	return {
 		createElement(type, props, ...children) { return { type, props: props ?? {}, children: children.flat() }; },
-		useState(value) { return [typeof value === "function" ? value() : value, () => {}]; },
+		useState(value) {
+			const initial = typeof value === "function" ? value() : value;
+			const next = seeded[stateIndex];
+			stateIndex += 1;
+			return [next === undefined ? initial : next, () => {}];
+		},
 		useEffect() {},
 		useLayoutEffect() {},
 		useRef(value) { return { current: value ?? null }; },
 		useCallback(fn) { return fn; },
 		useMemo(fn) { return fn(); }
 	};
+}
+
+/**
+ * Load client.js the way the browser loader does and return its test hook.
+ * `platform` drives the Apple check, so the macOS spelling of the default
+ * hotkey can be tested on any machine.
+ */
+function loadClient(platform = "Win32", react = reactStub()) {
 	const window = {
 		navigator: { platform, language: "en-US" },
 		innerWidth: 1024,
@@ -451,6 +467,95 @@ equal("a child of an editable host counts", win.isInsideEditable(node("span", { 
 equal("the composer card counts", win.isInsideEditable(node("span", { parent: node("div", { composer: "" }) })), true);
 equal("transcript text does not count", win.isInsideEditable(node("p", { parent: node("div") })), false);
 equal("a text node is judged by its parent", win.isInsideEditable({ nodeType: 3, parentElement: node("div", { editable: true }) }), true);
+
+// ── The floating bar renders ────────────────────────────────────────────────
+
+console.log("the floating bar appears with a selection");
+
+/** Every element in an `h` tree, flattened, so a rendered bar can be inspected. */
+function collectElements(node, found = []) {
+	if (node === null || node === undefined || typeof node !== "object") return found;
+	if (Array.isArray(node)) {
+		for (const item of node) collectElements(item, found);
+		return found;
+	}
+	if (node.type !== undefined) found.push(node);
+	for (const child of node.children ?? []) collectElements(child, found);
+	return found;
+}
+
+const selection = { text: "quoted text", rect: { top: 100, bottom: 120, left: 300, width: 200 }, clipped: false };
+const barState = [selection, { top: 126, left: 350 }, null, true];
+const bridgeProps = {
+	onActiveChange() {},
+	inputActions: { captureInsertion: () => null, insertText: () => true },
+	sessionId: "session-1"
+};
+
+/**
+ * Render the bridge the way a real selection renders it: `anchor`, `position`
+ * and `enabled` are the state a pointer-up would have produced. A throw here is
+ * the failure users see as "nothing appears" — the slot entry dies and React
+ * drops the whole occupant, listeners included.
+ */
+function renderBar(client, hotkey) {
+	if (hotkey !== undefined) client.configStore.publish({ ...client.DEFAULT_CONFIG, hotkey });
+	try {
+		const tree = client.QuoteComposerBridge(bridgeProps);
+		const buttons = collectElements(tree).filter((element) => String(element.props.className ?? "").includes("dsh-quote-btn"));
+		const primary = buttons.find((element) => String(element.props.className).includes("dsh-quote-btn-primary"));
+		const secondary = buttons.find((element) => !String(element.props.className).includes("dsh-quote-btn-primary"));
+		return { error: null, primary, secondary, buttons: buttons.length };
+	} catch (error) {
+		return { error, primary: undefined, secondary: undefined, buttons: 0 };
+	}
+}
+
+const firstBar = renderBar(loadClient("Win32", reactStub(barState)));
+check("a selection renders the bar instead of throwing", firstBar.error === null, firstBar.error && `${firstBar.error.name}: ${firstBar.error.message}`);
+check("the bar carries both actions", firstBar.buttons === 2, `${firstBar.buttons} button(s)`);
+equal("adding to the chat is the primary action", firstBar.primary?.props["aria-label"], "Add to chat");
+equal("copying sits beside it", firstBar.secondary?.props["aria-label"], "Copy");
+check(
+	"the tooltip names the configured hotkey",
+	String(firstBar.primary?.props.title ?? "").includes(win.formatHotkeyLabel(win.DEFAULT_CONFIG.hotkey)),
+	firstBar.primary?.props.title
+);
+
+const reboundBar = renderBar(loadClient("Win32", reactStub(barState)), "Mod+Alt+Q");
+check("a changed hotkey reaches the tooltip", String(reboundBar.primary?.props.title ?? "").includes("Ctrl+Alt+Q"), reboundBar.primary?.props.title);
+
+const macBar = renderBar(loadClient("MacIntel", reactStub(barState)));
+check("the macOS tooltip spells the modifier the Apple way", String(macBar.primary?.props.title ?? "").includes("⇧⌘."), macBar.primary?.props.title);
+
+// The menu is a second render branch of the same component, so it is rendered
+// the same way: a right-click with a live selection.
+const menuRender = (() => {
+	const client = loadClient("Win32", reactStub([selection, { top: 126, left: 350 }, { x: 120, y: 140 }, true]));
+	try {
+		const items = collectElements(client.QuoteComposerBridge(bridgeProps))
+			.filter((element) => String(element.props.className ?? "").includes("dsh-quote-menu-item"));
+		return { error: null, labels: items.map((element) => (element.children ?? []).join("")) };
+	} catch (error) {
+		return { error, labels: [] };
+	}
+})();
+check("a right-click with a selection renders the menu", menuRender.error === null, menuRender.error && `${menuRender.error.name}: ${menuRender.error.message}`);
+check("the menu offers Copy and Quote", menuRender.labels.join(" | ") === "Copy | Quote", menuRender.labels.join(" | "));
+
+const settingsRender = (() => {
+	try {
+		return { error: null, tree: loadClient("Win32", reactStub()).QuoteSettings() };
+	} catch (error) {
+		return { error };
+	}
+})();
+check("the settings card renders instead of throwing", settingsRender.error === null, settingsRender.error && `${settingsRender.error.name}: ${settingsRender.error.message}`);
+check(
+	"the settings card carries its fields",
+	settingsRender.tree !== undefined && collectElements(settingsRender.tree).length > 4,
+	`${settingsRender.tree === undefined ? "no tree" : collectElements(settingsRender.tree).length} element(s)`
+);
 
 // ── The settings surface renders in both languages ──────────────────────────
 

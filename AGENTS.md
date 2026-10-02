@@ -1,7 +1,7 @@
 # Agent installation guide
 
 Use this guide when someone asks you to install, update, verify, or remove `dsh-quote` in a DeepSeek Harness profile.
-Current release: **dsh-quote@1.3.0**, qualified against DSH cores **0.2.0-rc.2**, **0.2.0-rc.1** and **0.1.7-rc.2**.
+Current release: **dsh-quote@1.3.1**, qualified against DSH cores **0.2.0-rc.2**, **0.2.0-rc.1** and **0.1.7-rc.2**.
 
 ## Safety
 
