@@ -171,16 +171,19 @@ client.apply({
 });
 
 console.log("slot registrations");
-const activity = registrations.find((entry) => entry.slot.name === "conversation.input.activity");
+// The bridge must live in a *list* composer seat: `conversation.input.activity`
+// is `kind: "single"`, and taking it evicted the voice plugin's microphone.
+const bridge = registrations.find((entry) => entry.slot.name === "conversation.input.right");
 const bundleConfig = registrations.find((entry) => entry.slot.name === "plugins.bundle.config");
 const rowConfig = registrations.find((entry) => entry.slot.name === "plugins.row.config");
-check("the composer activity seat is taken", activity !== undefined && activity.slot.id === "dsh-quote", activity?.slot.id);
-check("the activity seat keeps a low order", typeof activity?.slot.order === "number", activity?.slot.order);
-check("the activity seat renders the bridge", typeof activity?.component === "function");
+check("the bridge takes a list composer seat", bridge !== undefined && bridge.slot.id === "dsh-quote", bridge?.slot.id);
+check("the bridge keeps a low order", typeof bridge?.slot.order === "number", bridge?.slot.order);
+check("the bridge seat renders the bridge component", typeof bridge?.component === "function");
+check("the single activity seat is left alone", !registrations.some((entry) => entry.slot.name === "conversation.input.activity"));
 check("bundle config slot is keyed by the package", bundleConfig?.slot.key === "dsh-quote", bundleConfig?.slot.key);
 check("row config slot is keyed by package#row", rowConfig?.slot.key === "dsh-quote#quote", rowConfig?.slot.key);
 check("exactly three slots are registered", registrations.length === 3, String(registrations.length));
-check("no removed slot name is registered", !registrations.some((entry) => !["conversation.input.activity", "plugins.bundle.config", "plugins.row.config"].includes(entry.slot.name)));
+check("no removed slot name is registered", !registrations.some((entry) => !["conversation.input.right", "plugins.bundle.config", "plugins.row.config"].includes(entry.slot.name)));
 
 console.log("settings surface");
 const summary = bundleConfig.component({ view: "summary" });

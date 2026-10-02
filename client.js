@@ -1618,10 +1618,16 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots'],
       apply(ctx) {
-        // The composer seat is only a listener: it renders the floating button
-        // through a body portal, so the toolbar itself never changes.
-        ctx.slots.inject('conversation.input.activity', () => ctx.slots.register({
-          name: 'conversation.input.activity',
+        // The composer seat for this bridge is a *list* slot on purpose:
+        // `conversation.input.activity` is `kind: "single"`, so occupying it
+        // evicts whichever plugin registered there first — which is exactly how
+        // this plugin used to kill the voice plugin's microphone at startup
+        // ("single slot already has a registration at priority 0"). The bridge
+        // draws nothing inline (the button goes through a body portal), so any
+        // session-scoped composer list accepts it, and `inputActions` still
+        // arrives from the session-scoped provide channel.
+        ctx.slots.inject('conversation.input.right', () => ctx.slots.register({
+          name: 'conversation.input.right',
           id: 'dsh-quote',
           order: 5
         }, QuoteComposerBridge));

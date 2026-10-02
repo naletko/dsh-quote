@@ -1,6 +1,6 @@
 {
   "name": "dsh-quote",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Quote the text you selected in the conversation into the composer, as a markdown block quote, without losing the draft you already typed.",
   "icon": "./icon.svg",
   "author": "Alex Naletko",
