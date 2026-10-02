@@ -557,6 +557,121 @@ check(
 	`${settingsRender.tree === undefined ? "no tree" : collectElements(settingsRender.tree).length} element(s)`
 );
 
+// ── The selection pipeline ──────────────────────────────────────────────────
+
+/**
+ * Drive the real selection pipeline instead of a single render.
+ *
+ * The React stand-in here keeps state between calls and *runs* the effects, so
+ * the document listeners the bridge installs are live and the state a pointer
+ * event produces can be read back. The selection stub behaves like a browser's:
+ * clearing it collapses the selection and fires `selectionchange`. That is the
+ * loop that used to kill the bar — it cleared the highlight mid-drag, then the
+ * `selectionchange` it caused came back, found a collapsed selection and
+ * dismissed the bar it had just anchored.
+ */
+function loadPipeline(platform = "Win32") {
+	const handlers = new Map();
+	const state = new Map();
+	const refs = new Map();
+	let hookIndex = 0;
+	const selection = {
+		isCollapsed: false,
+		rangeCount: 1,
+		removals: 0,
+		toString() { return this.isCollapsed ? "" : "quoted text"; },
+		getRangeAt() {
+			const transcript = node("p", { parent: node("div") });
+			return {
+				commonAncestorContainer: transcript,
+				startContainer: transcript,
+				endContainer: transcript,
+				getBoundingClientRect: () => ({ top: 100, bottom: 120, left: 300, width: 200 })
+			};
+		},
+		removeAllRanges() {
+			this.removals += 1;
+			this.isCollapsed = true;
+			for (const handler of handlers.get("selectionchange") ?? []) handler();
+		}
+	};
+	const react = {
+		createElement(type, props, ...children) { return { type, props: props ?? {}, children: children.flat() }; },
+		useState(value) {
+			const index = hookIndex;
+			hookIndex += 1;
+			if (!state.has(index)) state.set(index, typeof value === "function" ? value() : value);
+			return [state.get(index), (next) => {
+				state.set(index, typeof next === "function" ? next(state.get(index)) : next);
+			}];
+		},
+		useEffect(effect) { effect(); },
+		useLayoutEffect(effect) { effect(); },
+		useRef(value) {
+			const index = hookIndex;
+			hookIndex += 1;
+			if (!refs.has(index)) refs.set(index, { current: value ?? null });
+			return refs.get(index);
+		},
+		useCallback(fn) { return fn; },
+		useMemo(fn) { return fn(); }
+	};
+	const window = {
+		navigator: { platform, language: "en-US" },
+		innerWidth: 1024,
+		innerHeight: 768,
+		getSelection: () => selection,
+		addEventListener() {},
+		removeEventListener() {},
+		__ModuleLoader__: { load(record) { window.__record = record; } }
+	};
+	const element = () => ({ className: "", textContent: "", parentNode: null, setAttribute() {}, appendChild() {}, removeChild() {} });
+	globalThis.document = {
+		documentElement: { clientWidth: 1024, clientHeight: 768 },
+		head: { appendChild() {} },
+		body: { contains: () => true, appendChild() {} },
+		createElement: element,
+		querySelector: () => null,
+		addEventListener(type, handler) {
+			if (!handlers.has(type)) handlers.set(type, new Set());
+			handlers.get(type).add(handler);
+		},
+		removeEventListener(type, handler) { handlers.get(type)?.delete(handler); }
+	};
+	globalThis.fetch = async () => ({
+		ok: true,
+		json: async () => ({ ok: true, config: { enabled: true, attribution: false, maxLength: 4000, hotkey: "Mod+Shift+." } })
+	});
+	const requireStub = (id) => {
+		if (id === "react") return react;
+		if (id === "react-dom") return { createPortal: (node_) => node_ };
+		throw new Error(`unexpected require: ${id}`);
+	};
+	new Function("window", "require", source)(window, requireStub);
+	hookIndex = 0;
+	return { test: window.__record.factory(requireStub).__test, handlers, state, selection };
+}
+
+console.log("a selection survives the bar and anchors it");
+const pipeline = loadPipeline();
+pipeline.test.QuoteComposerBridge({
+	onActiveChange() {},
+	inputActions: { captureInsertion: () => null, insertText: () => true },
+	sessionId: "session-1"
+});
+// The bridge installs its listeners while rendering above, so the pipeline is
+// live; a pointer-up is what a mouse drag ends with.
+for (const handler of pipeline.handlers.get("mouseup") ?? []) handler({ target: null });
+// Two macrotask turns: the pointer-up schedules one evaluation, and a
+// `selectionchange` raised while it runs schedules the second one. Both must
+// have happened before the state is read, or a bar that is dismissed a tick
+// later would look anchored.
+await new Promise((resolve) => setTimeout(resolve, 10));
+await new Promise((resolve) => setTimeout(resolve, 10));
+equal("the browser's own highlight is left alone", pipeline.selection.removals, 0);
+const anchored = pipeline.state.get(0);
+check("the selection still anchors the bar", anchored !== null && anchored !== undefined && anchored.text === "quoted text", JSON.stringify(anchored));
+
 // ── The settings surface renders in both languages ──────────────────────────
 
 console.log("the settings slot");

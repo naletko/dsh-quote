@@ -1201,11 +1201,11 @@ window.__ModuleLoader__.load({
             dismiss();
             return;
           }
-          try {
-            window.getSelection()?.removeAllRanges();
-          } catch (error) {
-            // Removing the browser's own highlight is a nicety, not a need.
-          }
+          // The browser's own highlight is never cleared from here. Clearing it
+          // fires `selectionchange`, which re-enters this routine with a
+          // collapsed selection and dismisses the bar that was just anchored —
+          // and while the pointer is still dragging it wipes the selection the
+          // user is making, so nothing can be selected at all.
           const built = buildQuoteText(found.text, {
             maxLength: configStore.config.maxLength,
             attributionEnabled: configStore.config.attribution,
