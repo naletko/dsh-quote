@@ -125,7 +125,7 @@ node test/quote-logic-check.mjs
 ## 🧩 Требования и совместимость
 
 - **Ядро DeepSeek Harness `0.2.0-rc.2`** (веб-клиент приложения Desktop или сессия в браузере).
-- Используются слоты `conversation.input.activity`, `plugins.bundle.config` и `plugins.row.config`, а также действия поля ввода `captureInsertion()` / `insertText()` / `setDraft()`.
+- Используются слоты `conversation.input.right` (списочный — одиночный `conversation.input.activity` намеренно не занимается, иначе плагин вытесняет микрофон голосового плагина), `plugins.bundle.config` и `plugins.row.config`, а также действия поля ввода `captureInsertion()` / `insertText()` / `setDraft()`.
 - **Windows, macOS и Linux.** Пути строятся через `node:path`, горячая клавиша понимает `metaKey`, платформенных API из одной ОС не используется.
 - Ни зависимостей из npm, ни сборщика, ни шага сборки.
 
