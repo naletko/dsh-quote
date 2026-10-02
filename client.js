@@ -46,6 +46,7 @@ window.__ModuleLoader__.load({
     const DICTIONARIES = {
       en: {
         copy: 'Copy',
+        addToChat: 'Add to chat',
         quote: 'Quote',
         quoteHint: 'Quote the selection ({hotkey})',
         summary: 'Enabled, attribution, length limit and hotkey',
@@ -90,6 +91,7 @@ window.__ModuleLoader__.load({
       },
       ru: {
         copy: 'Копировать',
+        addToChat: 'Добавить в чат',
         quote: 'Цитировать',
         quoteHint: 'Цитировать выделенное ({hotkey})',
         summary: 'Включение, атрибуция, лимит длины и горячая клавиша',
@@ -791,6 +793,46 @@ window.__ModuleLoader__.load({
         font-weight: 600;
         color: var(--dsw-alias-brand-primary, #5b8bf0);
       }
+      .dsh-quote-bar {
+        position: fixed;
+        z-index: 2147483000;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 3px;
+        box-sizing: border-box;
+        border-radius: 11px;
+        border: 1px solid var(--dsw-alias-border-l3, rgba(255, 255, 255, 0.14));
+        background: var(--dsw-specific-menu, var(--dsw-alias-bg-layer-2, #22252c));
+        box-shadow: var(--dsw-elevation-prominent, 0 12px 32px rgba(0, 0, 0, 0.34));
+        pointer-events: auto;
+        -webkit-user-select: none;
+        user-select: none;
+        animation: dsh-quote-in 120ms ease-out;
+      }
+      .dsh-quote-bar .dsh-quote-btn {
+        position: static;
+        z-index: auto;
+        box-shadow: none;
+        border-color: transparent;
+        background: transparent;
+        animation: none;
+      }
+      .dsh-quote-bar .dsh-quote-btn:hover {
+        background: var(--dsw-alias-interactive-bg-hover, rgba(255, 255, 255, 0.09));
+        border-color: transparent;
+      }
+      .dsh-quote-bar .dsh-quote-btn-primary {
+        background: var(--dsw-alias-brand-primary, #5b8bf0);
+        color: var(--dsw-alias-label-primary-inverted, #ffffff);
+        font-weight: 600;
+      }
+      .dsh-quote-bar .dsh-quote-btn-primary svg {
+        color: inherit;
+      }
+      .dsh-quote-bar .dsh-quote-btn-primary:hover {
+        background: var(--dsw-alias-button-primary-hover, #4b76dd);
+      }
       .dsh-quote-btn {
         position: fixed;
         z-index: 2147483000;
@@ -1299,28 +1341,50 @@ window.__ModuleLoader__.load({
         return true;
       }, []);
 
+      // The bar appears as soon as something is selected — no right-click and no
+      // shortcut needed, which is the gesture people actually reach for. Adding to
+      // the composer is the primary action, copying is the second one.
       const button = anchor === null || enabled !== true || position === null
         ? null
-        : h('button', {
+        : h('div', {
           ref: buttonRef,
-          type: 'button',
-          className: 'dsh-quote-btn',
+          className: 'dsh-quote-bar',
           'data-dsh-quote': '',
           'data-clipped': String(anchor.clipped === true),
+          role: 'toolbar',
           style: { top: `${position.top}px`, left: `${position.left}px` },
-          title: message('quoteHint', { hotkey: formatHotkeyLabel(config.hotkey) }),
-          'aria-label': message('quote'),
           onMouseDown: (event) => event.preventDefault(),
-          onPointerDown: (event) => event.stopPropagation(),
-          onClick: (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            quoteCurrentSelection();
-            if (clearRef.current !== null) clearRef.current();
-          }
+          onPointerDown: (event) => event.stopPropagation()
         },
-          h(IconQuote, { size: 13 }),
-          h('span', null, message('quote'))
+          h('button', {
+            type: 'button',
+            className: 'dsh-quote-btn dsh-quote-btn-primary',
+            title: message('quoteHint', { hotkey: formatHotkeyLabel(config.hotkey) }),
+            'aria-label': message('addToChat'),
+            onClick: (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              quoteCurrentSelection();
+              if (clearRef.current !== null) clearRef.current();
+            }
+          },
+            h(IconQuote, { size: 13 }),
+            h('span', null, message('addToChat'))
+          ),
+          h('button', {
+            type: 'button',
+            className: 'dsh-quote-btn',
+            title: message('copy'),
+            'aria-label': message('copy'),
+            onClick: (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              copySelection();
+              if (clearRef.current !== null) clearRef.current();
+            }
+          },
+            h('span', null, message('copy'))
+          )
         );
 
       // The right-click menu replaces the native one only while text is selected,
