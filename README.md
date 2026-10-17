@@ -124,7 +124,7 @@ A deployment without a plugin manager prints the manual spec instead, for **Plug
 
 ## 🧩 Requirements and compatibility
 
-- **DeepSeek Harness core `0.2.0-rc.2`** (the web client of the Desktop app or a browser session).
+- **DeepSeek Harness core `0.2.1-rc.2`** (the web client of the Desktop app or a browser session); the manifest also accepts earlier `0.2.x` cores.
 - Uses the `conversation.input.right` slot (a **list** seat — the single `conversation.input.activity` seat is deliberately left free, because occupying it evicts the voice plugin's microphone), plus `plugins.bundle.config` and `plugins.row.config`, and the composer's `captureInsertion()` / `insertText()` / `setDraft()` actions.
 - **Windows, macOS and Linux.** Paths are built with `node:path`, the hotkey understands `metaKey`, and no platform-only API is used.
 - No npm dependencies, no bundler, no build step.
